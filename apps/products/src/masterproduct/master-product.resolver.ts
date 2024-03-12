@@ -26,13 +26,10 @@ export class MasterProductResolver {
     paginationInput: PaginationInput,
     @Args('searchFields', { type: () => [String], nullable: true })
     searchFields?: string[],
-    @Args('categoryIds', { type: () => [String], nullable: true })
-    categoryIds?: string[],
   ): Promise<MasterProductList> {
     const products = await this.masterProductService.getAllMasterProducts(
       paginationInput,
       searchFields ?? [],
-      categoryIds ?? [],
     );
     return products;
   }
@@ -53,24 +50,8 @@ export class MasterProductResolver {
     );
   }
 
-  // @Mutation(() => MasterProduct)
-  // deleteMasterProductById(@Args('_id', { type: () => String }) _id: string) {
-  //   return this.masterProductService.deleteMasterProductById(_id);
-  // }
-
-  @Mutation(() => String)
-  deleteCategoryById(
-    @Args('categoryId', { type: () => String }) categoryId: string,
-  ) {
-    return this.masterProductService.deleteCategoryAndMasterProduct(categoryId);
-  }
-
-  @Mutation(() => String)
-  deleteMasterProduct(
-    @Args('masterProductId', { type: () => String }) masterProductId: string,
-  ) {
-    return this.masterProductService.deleteMasterProductAndItsSubProducts(
-      masterProductId,
-    );
+  @Mutation(() => MasterProduct)
+  deleteMasterProductById(@Args('_id', { type: () => String }) _id: string) {
+    return this.masterProductService.deleteMasterProductById(_id);
   }
 }

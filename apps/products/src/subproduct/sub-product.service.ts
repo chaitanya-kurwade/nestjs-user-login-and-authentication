@@ -1,5 +1,4 @@
 import {
-  BadGatewayException,
   BadRequestException,
   Injectable,
   NotFoundException,
@@ -19,14 +18,6 @@ export class SubProductService {
     private readonly subProductModel: Model<SubPorductDocument>,
   ) {}
   async createSubProduct(createSubProductInput: CreateSubProductInput) {
-    const existingSku = await this.subProductModel.findOne({
-      sku: createSubProductInput.sku,
-    });
-    if (existingSku) {
-      throw new BadGatewayException(
-        'sku already exists with this name:' + existingSku,
-      );
-    }
     const product = await this.subProductModel.create(createSubProductInput);
     if (!product) {
       throw new BadRequestException('SubProduct already exists');
@@ -37,13 +28,88 @@ export class SubProductService {
   async getAllSubProducts(
     paginationInput: PaginationInput,
     searchFields?: string[],
-    masterProductIds?: string[],
   ): Promise<SubProductList> {
+    // const { page, limit, search, sortField, sortOrder } = paginationInput;
+    // // let allDocumentsCount = await this.subProductModel.countDocuments().exec();
+    // // console.log(totalCount);
+    // let query = this.subProductModel.find();
+    // if (searchFields == null || !searchFields.length) {
+    //   if (sortField && !['ASC', 'DESC'].includes(sortOrder)) {
+    //     throw new BadRequestException(
+    //       'Invalid sortOrder. It must be either ASC or DESC.',
+    //     );
+    //   }
+    //   if (search) {
+    //     query = query.where('categoryName').regex(new RegExp(search, 'i'));
+    //   }
+    //   if (sortField && !['ASC', 'DESC'].includes(sortOrder)) {
+    //     throw new BadRequestException(
+    //       'Invalid sortOrder. It must be either ASC or DESC.',
+    //     );
+    //   }
+    //   if (sortField && sortOrder) {
+    //     // console.log(sortOrder, 'single', sortField);
+    //     const sortOptions: { [key: string]: SortOrder } = {};
+    //     sortOptions[sortField] = sortOrder.toLowerCase() as SortOrder;
+    //     query = query.sort(sortOptions);
+    //   }
+    //   if (!page && !limit && !sortField && !sortOrder) {
+    //     const subProducts = await query.sort({ createdAt: -1 }).exec();
+    //     const totalCount = subProducts.length;
+    //     return { subProducts, totalCount };
+    //   }
+    //   const skip = (page - 1) * limit;
+    //   const subProducts = await query.skip(skip).limit(limit).exec();
+    //   if (!subProducts && subProducts.length === 0) {
+    //     throw new NotFoundException('subProducts not found');
+    //   }
+    //   const totalCount = subProducts.length;
+    //   return { subProducts, totalCount };
+    // } else {
+    //   query = this.buildQuery(search, searchFields);
+    //   // console.log(query);
+    //   if (!page && !limit && !sortField && !sortOrder) {
+    //     const subProducts = await query.sort({ createdAt: -1 }).exec();
+    //     const totalCount = subProducts.length;
+    //     return { subProducts, totalCount };
+    //   }
+    //   if (sortField && !['ASC', 'DESC'].includes(sortOrder)) {
+    //     // console.log(sortOrder, 'sortOrder', sortField);
+    //     throw new BadRequestException(
+    //       'Invalid sortOrder. It must be either ASC or DESC.',
+    //     );
+    //   }
+    //   if (sortField && sortOrder) {
+    //     // console.log(sortOrder, 'all', sortField);
+    //     const sortOptions: { [key: string]: SortOrder } = {};
+    //     sortOptions[sortField] = sortOrder.toLowerCase() as SortOrder;
+    //     query = query.sort(sortOptions);
+    //   }
+    //   const skip = (page - 1) * limit;
+    //   const subProducts = await query.skip(skip).limit(limit).exec();
+    //   if (!subProducts && subProducts.length == 0) {
+    //     throw new NotFoundException('subProducts not found');
+    //   }
+    //   const totalCount = subProducts.length;
+    //   return { subProducts, totalCount };
+    //
+    // }
     const { page, limit, search, sortOrder } = paginationInput;
 
-    let query = this.subProductModel.find({ status: 'PUBLISHED' });
-    let totalCountQuery = this.subProductModel.find({ status: 'PUBLISHED' });
-    if (search && searchFields && searchFields.length > 0) {
+    let query = this.subProductModel.find();
+    let totalCountQuery = this.subProductModel.find();
+
+    // Apply search if search term is provided
+    // if (search && searchFields.length >= 0) {
+    //   console.log(search);
+    //   const searchQuery = {};
+    //   searchFields.forEach((field) => {
+    //     searchQuery[field] = { $regex: search, $options: 'i' };
+    //   });
+    //   query = query.find({ $or: [searchQuery] });
+    //   totalCountQuery = totalCountQuery.find({ $or: [searchQuery] });
+    // }
+    if (search && searchFields.length > 0) {
       const searchQueries = searchFields.map((field) => ({
         [field]: { $regex: search, $options: 'i' },
       }));
@@ -52,118 +118,54 @@ export class SubProductService {
       totalCountQuery = totalCountQuery.find($orCondition);
     }
 
-    if (masterProductIds && masterProductIds.length !== 0) {
-      query = query.where('masterProductId').in(masterProductIds);
-      totalCountQuery = totalCountQuery
-        .where('masterProductId')
-        .in(masterProductIds);
+    // Apply sorting
+    if (sortOrder) {
+      query = query.sort(sortOrder);
     }
 
-    let sortOptions = {};
-    if (sortOrder) {
-      if (sortOrder.toUpperCase() === 'ASC') {
-        sortOptions = { createdAt: 1 };
-      } else if (sortOrder.toUpperCase() === 'DESC') {
-        sortOptions = { createdAt: -1 };
-      }
-    } else {
-      sortOptions = { createdAt: -1 };
-    }
-    query = query.sort(sortOptions);
+    // Apply pagination
     const skip = (page - 1) * limit;
     query = query.skip(skip).limit(limit);
 
-    const minMaxPricePipeline = [
-      {
-        $group: {
-          _id: null,
-          minPrice: { $min: '$prices' },
-          maxPrice: { $max: '$prices' },
-        },
-      },
-    ];
+    // Execute the query
+    const subProducts = await query.exec();
 
-    const [subProducts, minMaxPrice] = await Promise.all([
-      query.exec(),
-      this.subProductModel.aggregate(minMaxPricePipeline).exec(),
-    ]);
-    // const subProducts = await query.exec();
+    // Count total filtered documents
     const totalCount = await totalCountQuery.countDocuments();
 
-    return {
-      subProducts,
-      totalCount,
-      minPrice: minMaxPrice.length !== 0 ? minMaxPrice[0].minPrice : undefined,
-      maxPrice: minMaxPrice.length !== 0 ? minMaxPrice[0].maxPrice : undefined,
-    };
+    return { subProducts, totalCount };
+  }
+
+  private buildQuery(search: string, searchFields?: string[]): any {
+    let query = this.subProductModel.find();
+    if (search) {
+      const orConditions = searchFields.map((field) => ({
+        [field]: { $regex: new RegExp(search, 'i') },
+      }));
+      query = query.or(orConditions);
+    }
+    return query;
   }
 
   async getOneSubProductById(_id: string) {
-    const product = await this.subProductModel.findById({
-      _id,
-    });
-    if (!product || product.status !== 'PUBLISHED') {
-      throw new NotFoundException(
-        'SubProduct not available with _id: ' +
-          _id +
-          ', or it is not published',
-      );
+    const product = await this.subProductModel.findById(_id);
+    if (!product) {
+      throw new NotFoundException('SubProduct not available with _id: ' + _id);
     }
     return product;
   }
 
   async getSubProductsByMasterProductId(masterProductId: string) {
-    const subProducts = await this.subProductModel
-      .find({ masterProductId, status: 'PUBLISHED' })
+    const subProductsList = await this.subProductModel
+      .find({ masterProductId })
       .exec();
-    console.log(subProducts);
-    if (!subProducts || subProducts.length === 0) {
+    console.log(subProductsList);
+    if (!subProductsList || subProductsList.length === 0) {
       throw new NotFoundException(
         'SubProduct not available with ' + masterProductId + ' masterProductId',
       );
     }
-    return subProducts;
-  }
-
-  async getMinMaxPrices() {
-    const minPriceAggregate = await this.subProductModel
-      .aggregate([{ $group: { _id: null, minPrice: { $min: '$prices' } } }])
-      .exec();
-
-    const maxPriceAggregate = await this.subProductModel
-      .aggregate([{ $group: { _id: null, maxPrice: { $max: '$prices' } } }])
-      .exec();
-
-    const minPrice =
-      minPriceAggregate.length !== 0 ? minPriceAggregate[0].minPrice : null;
-    const maxPrice =
-      maxPriceAggregate.length !== 0 ? maxPriceAggregate[0].maxPrice : null;
-
-    return { minPrice, maxPrice };
-  }
-
-  async deleteSubProductsByMasterProductId(
-    masterProductId: string,
-  ): Promise<string> {
-    const subProductsByMasterProductId = await this.subProductModel.find({
-      masterProductId,
-    });
-    if (!subProductsByMasterProductId) {
-      throw new NotFoundException(
-        'this masterproduct do not have any subproduct available, masterProductId: ' +
-          masterProductId,
-      );
-    }
-
-    await Promise.all(
-      subProductsByMasterProductId.map(
-        async (subProduct) =>
-          await this.subProductModel.findByIdAndUpdate(subProduct._id, {
-            status: 'ARCHIVED',
-          }),
-      ),
-    );
-    return 'subproducts deleted';
+    return subProductsList;
   }
 
   async updateSubProductById(
@@ -174,16 +176,14 @@ export class SubProductService {
       _id,
       updateSubProductInput,
     );
-    if (!product || product.status !== 'PUBLISHED') {
+    if (!product) {
       throw new BadRequestException('SubProduct not updated, _id: ' + _id);
     }
     return product;
   }
 
   async deleteSubProductById(_id: string) {
-    const product = await this.subProductModel.findByIdAndUpdate(_id, {
-      status: 'ARCHIVED',
-    });
+    const product = await this.subProductModel.findByIdAndDelete(_id);
     if (!product) {
       throw new NotFoundException('SubProduct not deleted, _id: ' + _id);
     }

@@ -8,6 +8,8 @@ import { JwtStrategy } from 'common/library/strategies/jwt-strategy';
 import { JwtAuthGuard } from 'common/library/guards/jwt-auth.guard';
 import { APP_GUARD } from '@nestjs/core';
 import { EmailserviceModule } from 'apps/emailservice/src/emailservice.module';
+import { AuthController } from './auth.controller';
+import { GoogleStrategy } from 'common/library/strategies/google-strategy';
 
 @Module({
   imports: [
@@ -27,13 +29,14 @@ import { EmailserviceModule } from 'apps/emailservice/src/emailservice.module';
       }),
     }),
   ],
-  controllers: [],
+  controllers: [AuthController],
   providers: [
     AuthService,
     AuthResolver,
     JwtService,
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    GoogleStrategy,
   ],
 })
 export class AuthModule {}

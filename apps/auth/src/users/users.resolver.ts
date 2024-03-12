@@ -5,7 +5,6 @@ import { UpdateUserInput } from './inputs/update-user.input';
 import { UserResponse } from './responses/user-response.entity';
 import { PaginationInput, Public } from 'common/library';
 import { NotFoundException } from '@nestjs/common';
-import { SendEmail } from './entities/send-email.entity';
 
 @Resolver(() => User)
 export class UsersResolver {
@@ -52,20 +51,20 @@ export class UsersResolver {
   }
 
   @Public()
-  @Mutation(() => SendEmail, { name: 'forgetPasswordSendEmail' })
+  @Mutation(() => String, { name: 'forgetPassword' })
   async forgetPasswordSendEmail(@Args('email') email: string) {
     const user = await this.usersService.getUserByEmailId(email);
     if (!user) {
-      throw new NotFoundException(' user not found ');
+      throw new NotFoundException('user not found');
     }
     return await this.usersService.forgetPassword(user.email);
   }
 
-  // @Mutation(() => String, { name: 'receiveForgetPasswordToken' })
-  // async receiveForgetPasswordToken(newPassword: string, reset_token: string) {
-  //   return await this.usersService.receiveForgetPasswordToken(
-  //     newPassword,
-  //     reset_token,
-  //   );
-  // }
+  @Mutation(() => String, { name: 'receiveForgetPasswordToken' })
+  async receiveForgetPasswordToken(newPassword: string, reset_token: string) {
+    return await this.usersService.receiveForgetPasswordToken(
+      newPassword,
+      reset_token,
+    );
+  }
 }

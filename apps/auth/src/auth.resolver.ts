@@ -2,11 +2,7 @@ import { Args, Context, Mutation, Resolver } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
 import { UserLoginInput } from './users/inputs/user-login.input';
 import { LoginResponse } from './users/responses/user-login.response.entity';
-import {
-  BadRequestException,
-  NotFoundException,
-  Request,
-} from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { CreateUserInput } from './users/inputs/create-user.input';
 import { Public } from 'common/library/decorators/public.decorator';
 import { UserResponse } from './users/responses/user-response.entity';
@@ -19,30 +15,30 @@ export class AuthResolver {
   @Public()
   async login(
     @Args('userLoginInput') userLoginInput: UserLoginInput,
-  ): Promise<{ access_token: string }> {
-    const loginResponse = await this.authService.login(
-      userLoginInput.email,
+  ): Promise<LoginResponse> {
+    const { email, username, phoneNumber } = userLoginInput;
+    const credential = email || username || phoneNumber;
+    const userLogin = await this.authService.enterUsernameOrEmailOrPhoneNumber(
+      credential,
       userLoginInput.password,
     );
-    if (!userLoginInput.email) {
-      throw new NotFoundException('Invalid email in auth resolver');
-    }
-    if (!loginResponse) {
-      throw new Error('Invalid response in auth resolver');
-    }
-    return loginResponse;
+    return userLogin;
   }
 
   @Mutation(() => UserResponse)
   @Public()
-  signup(@Args('createUserInput') createUserInput: CreateUserInput) {
+  signup(
+    @Args('createUserInput') createUserInput: CreateUserInput,
+  ): Promise<UserResponse> {
     const user = this.authService.signup(createUserInput);
     return user;
   }
 
   @Mutation(() => String, { name: 'RefreshToken' })
   @Public()
-  async refreshAccessToken(@Context() context: { req: Request }) {
+  async refreshAccessToken(
+    @Context() context: { req: Request },
+  ): Promise<string> {
     const refreshToken =
       context.req.headers['authorization']?.split(' ')[1] || null;
     if (!refreshToken) {
@@ -62,5 +58,17 @@ export class AuthResolver {
 
     const user = await this.authService.getUserByAccessToken(access_token);
     return user;
+  }
+
+  @Public()
+  @Mutation(() => String, { name: 'loginViaOtp' })
+  async loginViaOtpAndPhoneOrEmail(@Args('phoneOrEmail') phoneOrEmail: string) {
+    return await this.authService.loginViaOtpAndPhoneOrEmail(phoneOrEmail);
+  }
+
+  @Public()
+  @Mutation(() => LoginResponse, { name: 'validateOtp' })
+  async validateOtp(@Args('otp') otp: number) {
+    return await this.authService.validateOtp(otp);
   }
 }

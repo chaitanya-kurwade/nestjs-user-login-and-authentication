@@ -16,7 +16,6 @@ import {
 import { PaginationInput } from 'common/library';
 import { CategoryService } from '../category/category.service';
 import { MasterProductList } from './responses/master-products-list.response.entity';
-import { SubProductService } from '../subproduct/sub-product.service';
 
 @Injectable()
 export class MasterProductService {
@@ -24,7 +23,6 @@ export class MasterProductService {
     @InjectModel(MasterProduct.name)
     private readonly masterProductModel: Model<MasterProductDocument>,
     private readonly categoryService: CategoryService,
-    private readonly subProductService: SubProductService,
   ) {}
 
   async createMasterProduct(
@@ -33,21 +31,11 @@ export class MasterProductService {
     const category = await this.categoryService.getCategoryById(
       createMasterProductInput.categoryId,
     );
-    const existingProductName = await this.masterProductModel.findOne({
+    const existingProduct = await this.masterProductModel.findOne({
       masterProductName: createMasterProductInput.masterProductName,
     });
-    if (existingProductName) {
-      throw new BadGatewayException(
-        'Master product already exists with this name:' + existingProductName,
-      );
-    }
-    const existingSku = await this.masterProductModel.findOne({
-      sku: createMasterProductInput.sku,
-    });
-    if (existingSku) {
-      throw new BadGatewayException(
-        'Master product already exists with this sku:' + existingSku,
-      );
+    if (existingProduct) {
+      throw new BadGatewayException('Master product already exists');
     }
     try {
       const product = await this.masterProductModel.create({
@@ -63,27 +51,87 @@ export class MasterProductService {
   async getAllMasterProducts(
     paginationInput: PaginationInput,
     searchFields?: string[],
-    categoryIds?: string[],
   ): Promise<MasterProductList> {
+    // const { page, limit, search, sortField, sortOrder } = paginationInput;
+    // // let allDocumentsCount = await this.masterProductModel.countDocuments().exec();
+    // // console.log(totalCount);
+    // let query = this.masterProductModel.find();
+    // if (searchFields == null || !searchFields.length) {
+    //   if (sortField && !['ASC', 'DESC'].includes(sortOrder)) {
+    //     throw new BadRequestException(
+    //       'Invalid sortOrder. It must be either ASC or DESC.',
+    //     );
+    //   }
+    //   if (search) {
+    //     query = query.where('masterProductName').regex(new RegExp(search, 'i'));
+    //   }
+    //   if (sortField && !['ASC', 'DESC'].includes(sortOrder)) {
+    //     throw new BadRequestException(
+    //       'Invalid sortOrder. It must be either ASC or DESC.',
+    //     );
+    //   }
+    //   if (sortField && sortOrder) {
+    //     // console.log(sortOrder, 'single', sortField);
+    //     const sortOptions: { [key: string]: SortOrder } = {};
+    //     sortOptions[sortField] = sortOrder.toLowerCase() as SortOrder;
+    //     query = query.sort(sortOptions);
+    //   }
+    //   if (!page && !limit && !sortField && !sortOrder) {
+    //     const masterProducts = await query.sort({ createdAt: -1 }).exec();
+    //     const totalCount = masterProducts.length;
+    //     return { masterProducts, totalCount };
+    //   }
+    //   const skip = (page - 1) * limit;
+    //   const masterProducts = await query.skip(skip).limit(limit).exec();
+    //   if (!masterProducts && masterProducts.length === 0) {
+    //     throw new NotFoundException('masterProducts not found');
+    //   }
+    //   const totalCount = masterProducts.length;
+    //   return { masterProducts, totalCount };
+    // } else {
+    //   query = this.buildQuery(search, searchFields);
+    //   // console.log(query);
+    //   if (!page && !limit && !sortField && !sortOrder) {
+    //     const masterProducts = await query.sort({ createdAt: -1 }).exec();
+    //     const totalCount = masterProducts.length;
+    //     return { masterProducts, totalCount };
+    //   }
+    //   if (sortField && !['ASC', 'DESC'].includes(sortOrder)) {
+    //     // console.log(sortOrder, 'sortOrder', sortField);
+    //     throw new BadRequestException(
+    //       'Invalid sortOrder. It must be either ASC or DESC.',
+    //     );
+    //   }
+    //   if (sortField && sortOrder) {
+    //     // console.log(sortOrder, 'all', sortField);
+    //     const sortOptions: { [key: string]: SortOrder } = {};
+    //     sortOptions[sortField] = sortOrder.toLowerCase() as SortOrder;
+    //     query = query.sort(sortOptions);
+    //   }
+    //   const skip = (page - 1) * limit;
+    //   const masterProducts = await query.skip(skip).limit(limit).exec();
+    //   if (!masterProducts && masterProducts.length == 0) {
+    //     throw new NotFoundException('masterProducts not found');
+    //   }
+    //   const totalCount = masterProducts.length;
+    //   return { masterProducts, totalCount };
+    // }
     const { page, limit, search, sortOrder } = paginationInput;
 
-    // query starts form here
-    let query = this.masterProductModel.find({ status: 'PUBLISHED' });
-    let totalCountQuery = this.masterProductModel.find({ status: 'PUBLISHED' });
+    let query = this.masterProductModel.find();
+    let totalCountQuery = this.masterProductModel.find();
 
-    // getMinMaxPrices
-    const getMinMaxPrices = await this.subProductService.getMinMaxPrices();
-    const minPrice = getMinMaxPrices.minPrice;
-    const maxPrice = getMinMaxPrices.maxPrice;
-
-    // categoryIds[] wise search
-    if (categoryIds && categoryIds.length !== 0) {
-      query = query.where('category._id').in(categoryIds);
-      totalCountQuery = totalCountQuery.where('category._id').in(categoryIds);
-    }
-
-    // search
-    if (search && searchFields && searchFields.length !== 0) {
+    // Apply search if search term is provided
+    // if (search && searchFields.length >= 0) {
+    //   console.log(search);
+    //   const searchQuery = {};
+    //   searchFields.forEach((field) => {
+    //     searchQuery[field] = { $regex: search, $options: 'i' };
+    //   });
+    //   query = query.find({ $or: [searchQuery] });
+    //   totalCountQuery = totalCountQuery.find({ $or: [searchQuery] });
+    // }
+    if (search && searchFields.length > 0) {
       const searchQueries = searchFields.map((field) => ({
         [field]: { $regex: search, $options: 'i' },
       }));
@@ -92,41 +140,40 @@ export class MasterProductService {
       totalCountQuery = totalCountQuery.find($orCondition);
     }
 
-    // sort and default sort: DESC
-    let sortOptions = {};
+    // Apply sorting
     if (sortOrder) {
-      if (sortOrder.toUpperCase() === 'ASC') {
-        sortOptions = { createdAt: 1 };
-      } else if (sortOrder.toUpperCase() === 'DESC') {
-        sortOptions = { createdAt: -1 };
-      }
-    } else {
-      sortOptions = { createdAt: -1 };
+      query = query.sort(sortOrder);
     }
-    query = query.sort(sortOptions);
 
-    // pagination
+    // Apply pagination
     const skip = (page - 1) * limit;
     query = query.skip(skip).limit(limit);
 
+    // Execute the query
     const masterProducts = await query.exec();
-    const totalCount = await totalCountQuery.countDocuments().exec();
 
-    return {
-      masterProducts,
-      totalCount,
-      minPrice: minPrice,
-      maxPrice: maxPrice,
-    };
+    // Count total filtered documents
+    const totalCount = await totalCountQuery.countDocuments();
+
+    return { masterProducts, totalCount };
+  }
+
+  private buildQuery(search: string, searchFields?: string[]): any {
+    let query = this.masterProductModel.find();
+    if (search) {
+      const orConditions = searchFields.map((field) => ({
+        [field]: { $regex: new RegExp(search, 'i') },
+      }));
+      query = query.or(orConditions);
+    }
+    return query;
   }
 
   async getOneMasterProductById(_id: string) {
-    const product = await this.masterProductModel.findById({
-      _id,
-    });
-    if (!product || product.status !== 'PUBLISHED') {
+    const product = await this.masterProductModel.findById(_id);
+    if (!product) {
       throw new NotFoundException(
-        'Product not available with _id: ' + _id + ', or it is not published',
+        'MasterProduct not available with Id: ' + _id,
       );
     }
     return product;
@@ -140,57 +187,17 @@ export class MasterProductService {
       _id,
       updateMasterProductInput,
     );
-    if (!product || product.status !== 'PUBLISHED') {
+    if (!product) {
       throw new BadRequestException('MasterProduct not updated, _id: ' + _id);
     }
     return product;
   }
 
   async deleteMasterProductById(_id: string) {
-    const product = await this.masterProductModel.findById({
-      _id,
-      status: 'PUBLISHED',
-    });
+    const product = await this.masterProductModel.findByIdAndDelete(_id);
     if (!product) {
       throw new NotFoundException('MasterProduct not deleted, _id: ' + _id);
     }
-    product.status = 'ARCHIVED';
-    return product.save();
-  }
-
-  async deleteMasterProductAndItsSubProducts(
-    masterProductId: string,
-  ): Promise<string> {
-    await this.subProductService.deleteSubProductsByMasterProductId(
-      masterProductId,
-    );
-    await this.deleteMasterProductById(masterProductId);
-    console.log(masterProductId);
-    return 'master product and its sub-products are deleted successfully';
-  }
-
-  async deleteCategoryAndMasterProduct(categoryId: string): Promise<string> {
-    const category = await this.categoryService.getCategoryById(categoryId);
-    if (!category) {
-      throw new NotFoundException(
-        'category not found for this id: ' + categoryId,
-      );
-    }
-    const masterProduct = await this.masterProductModel.find({
-      'category._id': categoryId,
-      status: 'PUBLISHED',
-    });
-    // console.log(masterProduct.map((product) => product._id));
-    if (!masterProduct) {
-      throw new NotFoundException('master product not found for this category');
-    }
-    await Promise.all(
-      masterProduct.map(
-        async (product) =>
-          await this.deleteMasterProductAndItsSubProducts(product._id),
-      ),
-    );
-    await this.categoryService.remove(categoryId);
-    return 'category, master product and its sub-products are deleted successfully';
+    return product;
   }
 }

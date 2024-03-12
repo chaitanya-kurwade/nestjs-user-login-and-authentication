@@ -14,12 +14,10 @@ import {
   ApolloFederationDriverConfig,
 } from '@nestjs/apollo';
 import { CategoryModule } from '../category/category.module';
-import { SubProductModule } from '../subproduct/sub-product.module';
 
 @Module({
   imports: [
     CategoryModule,
-    SubProductModule,
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forFeature([
       {
@@ -43,6 +41,5 @@ import { SubProductModule } from '../subproduct/sub-product.module';
     }),
   ],
   providers: [MasterProductResolver, MasterProductService],
-  exports: [MasterProductResolver, MasterProductService],
 })
 export class MasterProductModule {}

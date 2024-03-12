@@ -66,13 +66,13 @@ export class EmailserviceService {
     return { email, hexString, timestamp };
   }
 
-  // async receiveForgetPasswordToken(newPassword: string, reset_token: string) {
-  //   //?     check if token is expired or not
-  //   this.sendEmailModel.find({ hexString });
-  //   const currentTime = new Date();
-  //   if (currentTime) {
-  //   }
-  //   //todo  if not ->
-  //   console.log(newPassword, reset_token);
-  // }
+  async receiveForgetPasswordToken(newPassword: string, reset_token: string) {
+    //?     check if token is expired or not
+    this.sendEmailModel.findOne({ hexString });
+    const currentTime = new Date();
+    if (currentTime) {
+    }
+    //todo  if not ->
+    console.log(newPassword, reset_token);
+  }
 }

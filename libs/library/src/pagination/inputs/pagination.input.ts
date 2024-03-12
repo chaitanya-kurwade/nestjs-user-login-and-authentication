@@ -17,9 +17,9 @@ export class PaginationInput {
   @Field({ nullable: true })
   sortOrder?: 'ASC' | 'DESC';
 
-  // @Field(() => Int, { nullable: true })
-  // minPrice?: number;
+  @Field(() => Int, { nullable: true })
+  minPrice?: number;
 
-  // @Field(() => Int, { nullable: true })
-  // maxPrice?: number;
+  @Field(() => Int, { nullable: true })
+  maxPrice?: number;
 }

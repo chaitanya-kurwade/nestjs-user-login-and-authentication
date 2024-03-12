@@ -86,6 +86,16 @@ export class CategoryService {
     let query = this.categoryModel.find();
     let totalCountQuery = this.categoryModel.find();
 
+    // Apply search if search term is provided
+    // if (search && searchFields.length >= 0) {
+    //   console.log(search);
+    //   const searchQuery = {};
+    //   searchFields.forEach((field) => {
+    //     searchQuery[field] = { $regex: search, $options: 'i' };
+    //   });
+    //   query = query.find({ $or: [searchQuery] });
+    //   totalCountQuery = totalCountQuery.find({ $or: [searchQuery] });
+    // }
     if (search && searchFields.length > 0) {
       const searchQueries = searchFields.map((field) => ({
         [field]: { $regex: search, $options: 'i' },
@@ -95,22 +105,19 @@ export class CategoryService {
       totalCountQuery = totalCountQuery.find($orCondition);
     }
 
-    let sortOptions = {};
+    // Apply sorting
     if (sortOrder) {
-      if (sortOrder.toUpperCase() === 'ASC') {
-        sortOptions = { createdAt: 1 };
-      } else if (sortOrder.toUpperCase() === 'DESC') {
-        sortOptions = { createdAt: -1 };
-      }
-    } else {
-      sortOptions = { createdAt: -1 };
+      query = query.sort(sortOrder);
     }
-    query = query.sort(sortOptions);
+
+    // Apply pagination
     const skip = (page - 1) * limit;
     query = query.skip(skip).limit(limit);
 
+    // Execute the query
     const categories = await query.exec();
 
+    // Count total filtered documents
     const totalCount = await totalCountQuery.countDocuments();
 
     return { categories, totalCount };
@@ -118,10 +125,8 @@ export class CategoryService {
 
   async getCategoryById(_id: string) {
     const category = await this.categoryModel.findById(_id);
-    if (!category || category.status !== 'PUBLISHED') {
-      throw new NotFoundException(
-        'category not available with _id: ' + _id + ', or it is not published',
-      );
+    if (!category) {
+      throw new NotFoundException('category not found with _id: ' + _id);
     }
     return category;
   }
@@ -131,18 +136,17 @@ export class CategoryService {
       _id,
       updateCategoryInput,
     );
-    if (!category || category.status !== 'PUBLISHED') {
+    if (!category) {
       throw new BadGatewayException('category not updated, _id: ' + _id);
     }
     return category;
   }
 
   async remove(_id: string) {
-    const category = await this.categoryModel.findById(_id);
+    const category = await this.categoryModel.findByIdAndDelete(_id);
     if (!category) {
       throw new NotFoundException('Catogory not deleted, _id: ' + _id);
     }
-    category.status = 'ARCHIVED';
-    return category.save();
+    return category;
   }
 }

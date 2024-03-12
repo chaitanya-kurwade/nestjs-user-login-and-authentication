@@ -46,8 +46,8 @@ export class CategoryResolver {
     );
   }
 
-  // @Mutation(() => Category)
-  // removeCategory(@Args('_id') _id: string) {
-  //   return this.categoryService.remove(_id);
-  // }
+  @Mutation(() => Category)
+  removeCategory(@Args('_id') _id: string) {
+    return this.categoryService.remove(_id);
+  }
 }

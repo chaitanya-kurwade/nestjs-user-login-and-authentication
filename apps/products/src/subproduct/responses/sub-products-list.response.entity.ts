@@ -8,10 +8,4 @@ export class SubProductList {
 
   @Field(() => Int)
   totalCount: number;
-
-  @Field(() => Int)
-  minPrice: number;
-
-  @Field(() => Int)
-  maxPrice: number;
 }

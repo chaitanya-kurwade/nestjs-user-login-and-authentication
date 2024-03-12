@@ -37,6 +37,5 @@ import { SubProduct, SubProductSchema } from './entities/sub-product.entity';
     }),
   ],
   providers: [SubProductResolver, SubProductService],
-  exports: [SubProductResolver, SubProductService],
 })
 export class SubProductModule {}
